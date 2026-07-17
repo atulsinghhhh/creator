@@ -12,15 +12,227 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Stripe-inspired palette */
+@theme {
+  --color-ink: #0a2540; /* headings / dark section bg */
+  --color-body: #425466; /* body copy */
+  --color-muted: #6b7c93; /* secondary copy */
+  --color-blurple: #635bff; /* primary */
+  --color-blurple-dark: #0a2540; /* button hover */
+  --color-fog: #f6f9fc; /* light section bg */
+  --color-line: #e3e8ee; /* hairline borders */
+  --color-mint: #00d924; /* success accent */
+  --color-cyan-accent: #00d4ff;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ---------- Landing page ---------- */
+
+.landing {
+  background: #fff;
+  color: #0a2540;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing ::selection {
+  background: rgba(99, 91, 255, 0.2);
+}
+
+/* Stripe-style layered shadow for elevated cards */
+.shadow-stripe {
+  box-shadow:
+    0 13px 27px -5px rgba(50, 50, 93, 0.18),
+    0 8px 16px -8px rgba(0, 0, 0, 0.22);
+}
+
+.shadow-stripe-sm {
+  box-shadow:
+    0 6px 12px -2px rgba(50, 50, 93, 0.12),
+    0 3px 7px -3px rgba(0, 0, 0, 0.15);
+}
+
+/* Animated diagonal gradient band (hero) */
+.hero-gradient {
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: -560px;
+  height: 960px;
+  transform: skewY(-9deg);
+  background: linear-gradient(
+    100deg,
+    #ffd48a 0%,
+    #ff7eb9 22%,
+    #b56dff 46%,
+    #6f8bff 68%,
+    #7bd8ff 86%,
+    #a2f2df 100%
+  );
+  background-size: 220% 220%;
+  animation: gradient-move 16s ease-in-out infinite;
+}
+
+/* accent bars hugging the gradient's diagonal edge */
+.hero-gradient .edge-a,
+.hero-gradient .edge-b,
+.hero-gradient .edge-c {
+  position: absolute;
+  height: 40px;
+}
+
+.hero-gradient .edge-a {
+  bottom: -40px;
+  left: 0;
+  width: 30%;
+  background: #7bd8ff;
+  opacity: 0.85;
+}
+
+.hero-gradient .edge-b {
+  bottom: 0;
+  right: 0;
+  width: 22%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.hero-gradient .edge-c {
+  bottom: -40px;
+  right: 8%;
+  width: 12%;
+  background: #635bff;
+  opacity: 0.75;
+}
+
+@keyframes gradient-move {
+  0%,
+  100% {
+    background-position: 0% 40%;
+  }
+  50% {
+    background-position: 100% 60%;
+  }
+}
+
+/* Dark diagonal band (pipeline section) */
+.dark-band {
+  position: relative;
+}
+
+.dark-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: skewY(-6deg);
+  background: linear-gradient(180deg, #0a2540 0%, #123a63 100%);
+}
+
+/* Light diagonal band */
+.fog-band {
+  position: relative;
+}
+
+.fog-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: skewY(-6deg);
+  background: #f6f9fc;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+@keyframes progress-sweep {
+  from { width: 8%; }
+  to { width: 82%; }
+}
+
+.animate-progress {
+  animation: progress-sweep 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-pulse-soft,
+  .animate-progress,
+  .hero-gradient {
+    animation: none;
+  }
+}
+
+/* Skeleton shimmer (loading states) */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #eef2f6;
+  border-radius: 8px;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* Native <details> FAQ chevron */
+.faq details summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq details .chevron {
+  transition: transform 0.25s ease;
+}
+
+.faq details[open] .chevron {
+  transform: rotate(180deg);
 }

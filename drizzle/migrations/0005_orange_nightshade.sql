@@ -1,0 +1,1 @@
+ALTER TYPE "public"."job_steps" ADD VALUE 'moderation' BEFORE 'planner';

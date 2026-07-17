@@ -1,0 +1,1 @@
+ALTER TYPE "public"."subscription_providers" ADD VALUE 'none' BEFORE 'stripe';

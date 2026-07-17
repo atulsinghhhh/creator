@@ -1,0 +1,158 @@
+{
+  "info": {
+    "name": "CreatorOS Auth",
+    "description": "Auth business logic endpoints: register (auto-provisions Wallet + Free Subscription + 20 credits), login, refresh-token rotation, logout, forgot/reset password, email verification. Run 'Get CSRF Token' first — it stores both the CSRF cookie and a {{csrfToken}} collection variable that later requests send back as the x-csrf-token header. Postman's cookie jar carries the session/refresh cookies automatically between requests as long as they all hit {{baseUrl}}. Password reset / email verification tokens aren't returned in the API response (they're 'emailed') — copy the raw token out of the `npm run dev` console log (search for '[email:stub]') and paste it into the request body.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "csrfToken", "value": "", "type": "string" },
+    { "key": "email", "value": "test@example.com", "type": "string" },
+    { "key": "password", "value": "correcthorsebatterystaple", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "0. Get CSRF Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/auth/csrf-token", "host": ["{{baseUrl}}"], "path": ["api", "auth", "csrf-token"] },
+        "description": "Sets the csrf_token cookie and returns the same value in the body. Run this first, and again any time csrfToken looks stale."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('csrfToken', body.csrfToken);",
+              "pm.test('csrfToken captured', () => pm.expect(body.csrfToken).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-csrf-token", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+        "description": "Creates the user, then atomically provisions: Wallet (balance 0) -> Free Subscription -> +20 credit Wallet Transaction (balance -> 20). Sets session + refresh cookies. 409 if the email is already taken."
+      }
+    },
+    {
+      "name": "2. Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-csrf-token", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+        "description": "401 invalid_credentials on wrong password. After 5 failed attempts in a row, returns 423 account_locked with an increasing-delay lockout. 429 rate_limited if hammered (20/15min per IP, 10/15min per email)."
+      }
+    },
+    {
+      "name": "3. Refresh Session",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] },
+        "description": "Uses the refresh_token cookie (no body/CSRF needed). Rotates to a new refresh token + a new 15-min session token. Replaying an already-rotated refresh token returns 401 refresh_token_reuse_detected and revokes the whole token family (forces full re-login)."
+      }
+    },
+    {
+      "name": "4. Logout",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "x-csrf-token", "value": "{{csrfToken}}" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] },
+        "description": "Revokes the current refresh token and clears both cookies."
+      }
+    },
+    {
+      "name": "5. Forgot Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-csrf-token", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] },
+        "description": "Always returns {ok:true} whether or not the email exists (no account enumeration). If it exists, a reset link is logged to the dev server console — copy the `token` query param from there into the Reset Password request below."
+      }
+    },
+    {
+      "name": "6. Reset Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-csrf-token", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"PASTE_TOKEN_FROM_SERVER_CONSOLE\",\n  \"password\": \"aBrandNewPassw0rd!\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password"] },
+        "description": "Single-use token, 1hr expiry. On success, revokes ALL of the user's refresh tokens (force logout everywhere)."
+      }
+    },
+    {
+      "name": "7. Verify Email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-csrf-token", "value": "{{csrfToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"PASTE_TOKEN_FROM_SERVER_CONSOLE\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/verify-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-email"] },
+        "description": "Verification is optional and never blocks login — this just flips users.emailVerified. Token is logged to the dev console on Register (or via Resend Verification below)."
+      }
+    },
+    {
+      "name": "8. Resend Verification",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "x-csrf-token", "value": "{{csrfToken}}" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/resend-verification", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-verification"] },
+        "description": "Requires an active session cookie (run Login first). 401 unauthenticated if not logged in. Rate limited to 3/hour per user."
+      }
+    },
+    {
+      "name": "9. Google OAuth Sign-in (browser only)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/auth/signin/google", "host": ["{{baseUrl}}"], "path": ["api", "auth", "signin", "google"] },
+        "description": "This is a browser redirect flow (Google's consent screen), not a JSON API — Postman can't drive it meaningfully. Open this URL in an actual browser to test Google sign-in. Requires GOOGLE_CLIENT_ID/SECRET to be set in .env.local."
+      }
+    }
+  ]
+}
