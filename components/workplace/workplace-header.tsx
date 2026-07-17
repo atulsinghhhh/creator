@@ -38,12 +38,12 @@ export function WorkplaceHeader({ profile }: { profile: WorkplaceProfile }) {
             <Avatar profile={profile} />
             <div className="hidden leading-tight sm:block">
               <p className="text-[13px] font-semibold text-ink">{profile.name}</p>
-              <a
+              <Link
                 href="/api/auth/signout"
                 className="text-xs text-muted transition-colors hover:text-ink"
               >
                 Sign out
-              </a>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { redis } from "@/lib/utilis/redis";
+import { redis } from "@/lib/redis";
 
 interface RateLimitParams {
   /** Unique key for the thing being limited, e.g. `login:ip:1.2.3.4` or `login:email:a@b.com`. */
