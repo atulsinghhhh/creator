@@ -60,6 +60,8 @@ export interface VoiceOutput {
 export interface CaptionsOutput {
   words: CaptionWord[];
   subtitleUrl: string;
+  srtUrl?: string;
+  wordsJsonUrl?: string;
 }
 
 export interface MediaOutput {

@@ -157,6 +157,9 @@ export const generations = pgTable("generations", {
   duration: decimal({ precision: 10, scale: 2 }),
   cost: decimal({ precision: 10, scale: 4 }).notNull().default("0"),
   status: GenerationStatuses().notNull().default("queued"),
+  // Credits are debited only when a generation completes (CLAUDE.md Billing);
+  // this flag makes chargeGeneration idempotent — never double-charge.
+  creditsCharged: boolean().notNull().default(false),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

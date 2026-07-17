@@ -5,15 +5,22 @@ import { desc, eq } from "drizzle-orm";
 import { auth } from "@/lib/utilis/auth";
 import { db } from "@/lib/db";
 import { generations, projects } from "@/lib/db/schema";
+import { getBalance } from "@/lib/billing/balance";
+import { getProfile } from "@/lib/workplace/queries";
 import { platformLabel } from "@/lib/workplace/format";
-import { GenerationSteps } from "@/components/processing/GenerationSteps";
+import { WorkplaceHeader } from "@/components/workplace/workplace-header";
+import { GenerationView } from "@/components/processing/GenerationView";
 
 export const metadata: Metadata = {
   title: "Project — CreatorOS",
 };
 
-// Placeholder for the project detail view (Processing/Preview screens follow
-// with the pipeline work). Verifies ownership before showing anything.
+export const dynamic = "force-dynamic";
+
+/**
+ * V0 screens 3+4 (Processing → Preview), state-driven on one route.
+ * Ownership verified server-side; live pipeline state polled client-side.
+ */
 export default async function ProjectPage({
   params,
 }: {
@@ -31,42 +38,49 @@ export default async function ProjectPage({
   const [project] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
   if (!project || project.userId !== session.user.id) notFound();
 
-  const [latestGeneration] = await db
-    .select({ id: generations.id })
-    .from(generations)
-    .where(eq(generations.projectId, project.id))
-    .orderBy(desc(generations.createdAt))
-    .limit(1);
+  const [profile, balance, [latestGeneration]] = await Promise.all([
+    getProfile(session.user.id),
+    getBalance(session.user.id),
+    db
+      .select({ id: generations.id })
+      .from(generations)
+      .where(eq(generations.projectId, project.id))
+      .orderBy(desc(generations.createdAt))
+      .limit(1),
+  ]);
+  if (!profile) redirect("/api/auth/signin?callbackUrl=/workplace");
 
   return (
-    <div className="landing flex min-h-screen flex-col items-center justify-center bg-fog px-5 font-sans">
-      <div className="shadow-stripe-sm w-full max-w-lg rounded-2xl border border-line bg-white p-8">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-          {platformLabel(project.platform)} · {project.status}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">
-          {project.title}
-        </h1>
-        <div className="mt-4 rounded-lg border border-line bg-fog px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-            Prompt
+    <div className="landing min-h-screen bg-fog font-sans">
+      <WorkplaceHeader profile={profile} credits={balance} />
+      <main className="mx-auto max-w-6xl px-5 py-10">
+        <div className="mb-8">
+          <div className="flex items-center gap-2.5">
+            <span className="rounded-full bg-blurple/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-blurple">
+              {platformLabel(project.platform)}
+            </span>
+            <Link href="/workplace" className="text-[13px] font-medium text-muted hover:text-ink">
+              ← Back to Workplace
+            </Link>
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">{project.title}</h1>
+          <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-body">
+            &ldquo;{project.prompt}&rdquo;
           </p>
-          <p className="mt-1 text-sm leading-relaxed text-ink">&ldquo;{project.prompt}&rdquo;</p>
         </div>
+
         {latestGeneration ? (
-          <GenerationSteps generationId={latestGeneration.id} />
+          <GenerationView
+            initialGenerationId={latestGeneration.id}
+            projectId={project.id}
+            balance={balance}
+          />
         ) : (
-          <p className="mt-4 text-sm leading-relaxed text-body">
-            No generation yet for this project.
-          </p>
+          <div className="shadow-stripe-sm rounded-2xl border border-line bg-white p-8 text-center">
+            <p className="text-[15px] text-body">No generation yet for this project.</p>
+          </div>
         )}
-        <Link
-          href="/workplace"
-          className="mt-6 inline-flex h-10 items-center rounded-full bg-blurple px-5 text-sm font-semibold text-white transition-colors hover:bg-ink"
-        >
-          Back to Workplace
-        </Link>
-      </div>
+      </main>
     </div>
   );
 }

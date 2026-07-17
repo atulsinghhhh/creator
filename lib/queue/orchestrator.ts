@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { chargeGeneration } from "@/lib/billing/charge";
 import { db } from "@/lib/db";
 import { assets, generations, jobs, projects } from "@/lib/db/schema";
 import { pipelineGraph } from "@/pipeline/registry";
@@ -174,6 +175,10 @@ export async function runGenerationPipeline(generationId: string, bullJobId: str
     .update(generations)
     .set({ status: "completed", cost: accumulatedCost.toFixed(4) })
     .where(eq(generations.id, generationId));
+
+  // Last line of the success path only — a failed generation can never
+  // reach this, so it can never cost the user a credit (CLAUDE.md Billing).
+  await chargeGeneration(generationId);
 }
 
 // Maps each stage's typed output onto the generations table's denormalized
@@ -227,13 +232,13 @@ async function persistStageAssets(
       }))
     );
   } else if (step === "captions") {
-    const { subtitleUrl, words } = output as CaptionsOutput;
+    const { subtitleUrl, words, srtUrl, wordsJsonUrl } = output as CaptionsOutput;
     await db.insert(assets).values({
       generationId,
       type: assetType,
       url: subtitleUrl,
       source,
-      metadata: { wordCount: words.length },
+      metadata: { wordCount: words.length, srtUrl, wordsJsonUrl },
     });
   } else if (step === "media") {
     const { clips } = output as MediaOutput;

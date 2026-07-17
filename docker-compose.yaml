@@ -63,7 +63,17 @@ services:
       timeout: 5s
       retries: 10
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: creator-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - creator_qdrant_data:/qdrant/storage
+
 volumes:
   creator_postgres_data:
   creator_redis_data:
   creator_minio_data:
+  creator_qdrant_data:

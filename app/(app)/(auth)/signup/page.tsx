@@ -109,7 +109,8 @@ export default function SignupPage() {
       </form>
 
       <p className="mt-5 text-center text-[13px] leading-relaxed text-muted">
-        By continuing, you get a free plan with 20 credits to start — no card required.
+        By continuing, you get a free plan with 20 credits to start (your first 2 videos) — no
+        card required.
       </p>
     </AuthShell>
   );

@@ -4,6 +4,7 @@ import { auth } from "@/lib/utilis/auth";
 import { db } from "@/lib/db";
 import { generations, projects } from "@/lib/db/schema";
 import { enqueueGenerationJob } from "@/lib/queue/generation-queue";
+import { hasCredit } from "@/lib/billing/balance";
 import { verifyCsrf } from "@/lib/auth/csrf";
 
 const createProjectSchema = z.object({
@@ -32,6 +33,11 @@ export async function POST(request: NextRequest) {
   const parsed = createProjectSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Balance is checked at start but only debited on completion (CLAUDE.md Billing).
+  if (!(await hasCredit(userId))) {
+    return NextResponse.json({ error: "insufficient_credits" }, { status: 402 });
   }
 
   const { project, generation } = await db.transaction(async (tx) => {

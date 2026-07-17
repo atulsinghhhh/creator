@@ -13,13 +13,14 @@ export const captionsStage: PipelineStage<"captions", CaptionsOutput> = {
     const sceneAudios = state.results.voice?.sceneAudios;
     if (!sceneAudios) throw new Error("captions stage requires voice output");
 
-    const { words, subtitleUrl, costUsd } = await getCaptionService().generateCaptions({
-      sceneAudios,
-      generationId: state.generationId,
-    });
+    const { words, subtitleUrl, srtUrl, wordsJsonUrl, costUsd } =
+      await getCaptionService().generateCaptions({
+        sceneAudios,
+        generationId: state.generationId,
+      });
 
     return {
-      output: { words, subtitleUrl },
+      output: { words, subtitleUrl, srtUrl, wordsJsonUrl },
       cost: costUsd,
       provider: getProviderConfig().CAPTION_PROVIDER,
     };

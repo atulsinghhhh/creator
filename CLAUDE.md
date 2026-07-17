@@ -34,10 +34,11 @@ Billing (Credits) is not a screen in this flow — it's a persistent balance sho
 - Frontend: React 19 + Tailwind CSS
 - Script generation: Groq (`llama-3.3-70b-versatile`) via `GroqPlanner`/`GroqScriptGenerator` — temporary, behind `PlannerService`/`ScriptService` interfaces
 - Voice generation: Kokoro (self-hosted, docker compose) via `KokoroVoiceService` — behind `VoiceService`
-- Captions: stub adapter live (`StubCaptions` — fake word timings over real audio durations); Groq STT MVP below is the next real implementation
+- Moderation: **live** — Groq-hosted safety classifier (`openai/gpt-oss-safeguard-20b`) via `GroqModeration` (`lib/services/providers/groq/moderation.ts`): policy-based verdict on the raw prompt, fail-closed parsing; rejection throws `NonRetryableStageError` (no retries, no downstream spend)
+- Captions: **live** — Groq Speech-to-Text (`whisper-large-v3-turbo`) via `GroqCaptionService` (`lib/services/captions/groq.ts`): word-level timestamps from the real audio, VTT/SRT/JSON outputs
 - ### MediaSearchService
 
-Status: Not yet implemented.
+Status: **live (MVP)** — CLIP (transformers.js ONNX, OpenCLIP-equivalent embeddings) + Qdrant in `lib/services/media/`; local library ingested via `npm run media:ingest`.
 
 Implementation requirements:
 
@@ -48,7 +49,7 @@ Implementation requirements:
 - All search logic must go through the `MediaSearchService` interface.
 - ### RenderService
 
-Status: Not yet implemented.
+Status: **live (MVP)** — Remotion composition (`lib/services/render/remotion/`) + FFmpeg export (`lib/services/render/ffmpeg-exporter.ts`).
 
 Implementation requirements:
 
@@ -57,7 +58,7 @@ Implementation requirements:
 - Implement under `lib/services/render/`.
 ### CaptionService
 
-Status: MVP implementation.
+Status: **live (MVP)** — implemented as specced below.
 
 Implementation:
 
@@ -76,7 +77,7 @@ Future:
 
 Provider wiring: interfaces in `lib/services/types.ts`, adapters in `lib/services/providers/`, resolved once from env in `lib/services/index.ts` (config: `lib/config/providers.ts`). Every external call is logged to `provider_calls` (model, tokens, cost, latency, success — one row per attempt).
 
-Current adapter status: Moderation/Media Search/Captions/Renderer/Exporter all run as `stub` adapters (`lib/services/providers/stub/`, config `*_PROVIDER=stub`) — correctly shaped fake output, wired as real pipeline steps with Asset/Generation persistence. The spec blocks above (OpenCLIP+Qdrant, Remotion+FFmpeg, Groq STT) describe their planned real implementations; each replaces its stub behind the same interface + one config change.
+Current adapter status: **all 8 stages run real providers** — Moderation=groq (gpt-oss-safeguard), Captions=groq, Media=clip (CLIP+Qdrant), Renderer=remotion, Exporter=ffmpeg, all config-selected (`*_PROVIDER` env vars); every stub adapter is retained, so reverting any provider is one env change. Media search quality depends on the ingested library: `media-library/` currently holds synthetic sample clips (`npm run media:samples`) — drop real stock MP4s in and re-run `npm run media:ingest` for meaningful matches.
 
 ## Architecture Rules
 
@@ -139,13 +140,13 @@ The Preview screen is read-only in V0 — no editing controls beyond Regenerate 
 - `script` — full script text
 - `subtitleUrl` — captions, rendered as toggleable overlay or separate panel
 - Download button — direct link to `videoUrl`
-- Regenerate button — only enabled if the user has ≥1 credit; if not, route to the credit purchase flow instead of silently failing
+- Regenerate button — only enabled if the user can afford one video (balance ≥ `GENERATION_COST_CREDITS`); if not, route to the credit purchase flow instead of silently failing
 
 **Do not build:** trim/edit controls, per-scene regenerate, script editing, voice swapping. All of these are later-version features (see the "Do NOT implement" list above).
 
 ## Billing (Credits — V0 model)
 
-V0 billing is intentionally the simplest model that works: **users buy credit packs, each successful video generation consumes exactly one credit.**
+V0 billing is intentionally the simplest model that works: **users buy credit packs, each successful video generation consumes a fixed number of credits — currently 10, defined once as `GENERATION_COST_CREDITS` in `lib/billing/packs.ts`.** Never hardcode the per-video cost anywhere else (code or copy); import the constant.
 
 **Explicitly out of scope for V0 billing:**
 - Subscriptions / recurring plans
@@ -156,7 +157,7 @@ V0 billing is intentionally the simplest model that works: **users buy credit pa
 **Rules:**
 - New users receive a small starting grant (e.g. 3 free credits) recorded as a `CreditTransaction` of type `grant` — exact number is a product decision, not an engineering one, confirm before hardcoding.
 - Purchasing credits goes through Stripe Checkout; a webhook on successful payment creates a `purchase` transaction and increments `Credit.balance`. Do not increment balance from the client-side redirect — only the webhook is trusted.
-- A credit is checked (balance ≥ 1) before a Generation is allowed to start, but only **debited when the Generation reaches `done` status.** If a Generation fails at any pipeline stage, no credit is consumed — this is why `creditsCharged` exists on Generation, to prevent double-charging on retries of the same generation.
+- The balance is checked (balance ≥ `GENERATION_COST_CREDITS`) before a Generation is allowed to start, but only **debited when the Generation reaches `done` status.** If a Generation fails at any pipeline stage, no credit is consumed — this is why `creditsCharged` exists on Generation, to prevent double-charging on retries of the same generation.
 - If a Generation fails after a credit was already (incorrectly) charged, that's a bug — the fix is correctness in the charge-on-completion logic, not a refund workflow. Don't build a refund UI for this in V0; it shouldn't be reachable if the rule above is implemented correctly.
 - `Credit.balance` is the fast-read source of truth for gating actions (Dashboard display, Generate button state); `CreditTransaction` is the audit log. Never compute balance by summing transactions on every read — maintain the running `balance` field and let transactions be the historical record.
 
@@ -171,7 +172,9 @@ V0 billing is intentionally the simplest model that works: **users buy credit pa
 
 - Dev server: `npm run dev`
 - Run tests: `___`
-- Run a single pipeline stage standalone: `npm run stage <planner|script|voice|captions|media|render> [-- --prompt "..." --platform tiktok]` (runs upstream stages first; real providers, no DB writes)
+- Run a single pipeline stage standalone: `npm run stage <moderation|planner|script|voice|media|captions|render|export> [-- --prompt "..." --platform tiktok]` (runs upstream stages first; real providers, no DB writes)
+- Generate synthetic sample clips: `npm run media:samples` (writes to `media-library/`)
+- Ingest the media library into CLIP+Qdrant: `npm run media:ingest` (idempotent; re-run after adding clips)
 - DB migrate: `npm run db:migrate` (generate first with `npm run db:generate`)
 - Stripe webhook (local dev): `___` (fill in once Stripe CLI forwarding is set up)
 
@@ -179,4 +182,6 @@ V0 billing is intentionally the simplest model that works: **users buy credit pa
 
 *(add these as you hit them — this section compounds in value over time)*
 
--
+- Generations stuck with every step "Queued" almost always means `npm run worker` isn't running — the Next dev server enqueues jobs but never processes them.
+- Another project's Kokoro container (`go_app_kokoro`) may already hold port 8880, so `docker compose up kokoro` fails with "port is already allocated". Any Kokoro answering on 8880 works — no need for two.
+- The moderation policy's "violence" clause originally denied combat-sports prompts (e.g. "conor mcgregor fighting with khabib"); it now carves out professional/regulated sporting competition while still denying real-world harm and graphic gore.

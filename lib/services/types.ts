@@ -155,8 +155,11 @@ export interface CaptionInput {
 
 export interface CaptionResult {
   words: CaptionWord[];
-  /** Uploaded caption file (via StorageService) — persisted as Generation.subtitleUrl. */
+  /** Uploaded caption file (via StorageService) — persisted as Generation.subtitleUrl. VTT for real providers. */
   subtitleUrl: string;
+  /** Extra formats when the provider produces them (persisted in the caption Asset's metadata). */
+  srtUrl?: string;
+  wordsJsonUrl?: string;
   costUsd: number;
 }
 

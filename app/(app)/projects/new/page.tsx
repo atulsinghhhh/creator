@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/utilis/auth";
+import { getBalance } from "@/lib/billing/balance";
+import { getProfile } from "@/lib/workplace/queries";
+import { GENERATION_COST_CREDITS } from "@/lib/billing/packs";
+import { WorkplaceHeader } from "@/components/workplace/workplace-header";
+import { NewProjectForm } from "@/components/projects/NewProjectForm";
 
 export const metadata: Metadata = {
   title: "New project — CreatorOS",
 };
 
-// Placeholder for V0 screen 2 (New Project). The Workplace links here — the
-// real prompt form + platform picker lands with the pipeline work.
+export const dynamic = "force-dynamic";
+
+/** V0 screen 2: prompt in → pipeline kicks off. Balance is gated here and re-checked server-side. */
 export default async function NewProjectPage({
   searchParams,
 }: {
@@ -18,33 +23,34 @@ export default async function NewProjectPage({
   if (!session?.user?.id) {
     redirect("/api/auth/signin?callbackUrl=/projects/new");
   }
-  const { prompt } = await searchParams;
+  const [{ prompt }, profile, balance] = await Promise.all([
+    searchParams,
+    getProfile(session.user.id),
+    getBalance(session.user.id),
+  ]);
+  if (!profile) redirect("/api/auth/signin?callbackUrl=/projects/new");
 
   return (
-    <div className="landing flex min-h-screen flex-col items-center justify-center bg-fog px-5 font-sans">
-      <div className="shadow-stripe-sm w-full max-w-lg rounded-2xl border border-line bg-white p-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+    <div className="landing min-h-screen bg-fog font-sans">
+      <WorkplaceHeader profile={profile} credits={balance} />
+      <main className="mx-auto max-w-xl px-5 py-12">
+        <p className="text-[13px] font-semibold uppercase tracking-wider text-blurple">
           New project
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">
+          One prompt in. One video out.
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-body">
-          The project creation screen is the next piece of V0 — prompt in,
-          pipeline kicks off.
+          Describe the short video you want — the pipeline plans, scripts, voices, and renders it.
         </p>
-        {prompt && (
-          <div className="mt-5 rounded-lg border border-line bg-fog px-4 py-3 text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-              Prefilled prompt
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-ink">&ldquo;{prompt}&rdquo;</p>
-          </div>
-        )}
-        <Link
-          href="/workplace"
-          className="mt-6 inline-flex h-10 items-center rounded-full bg-blurple px-5 text-sm font-semibold text-white transition-colors hover:bg-ink"
-        >
-          Back to Workplace
-        </Link>
-      </div>
+
+        <div className="shadow-stripe-sm mt-8 rounded-2xl border border-line bg-white p-6 sm:p-8">
+          <NewProjectForm
+            initialPrompt={prompt ?? ""}
+            hasCredits={balance >= GENERATION_COST_CREDITS}
+          />
+        </div>
+      </main>
     </div>
   );
 }

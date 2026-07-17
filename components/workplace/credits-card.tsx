@@ -57,10 +57,10 @@ export async function CreditsCard({ userId }: { userId: string }) {
 
       {planCode !== "enterprise" && (
         <Link
-          href="/#pricing"
+          href="/billing"
           className="mt-5 flex h-10 items-center justify-center gap-1 rounded-full bg-blurple text-sm font-semibold text-white transition-colors duration-200 hover:bg-ink"
         >
-          Upgrade
+          Get credits
           <Icon d={icons.chevronRight} className="size-3" strokeWidth={3} />
         </Link>
       )}

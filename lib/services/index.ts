@@ -1,7 +1,12 @@
 import { getProviderConfig, requireGroqApiKey } from "@/lib/config/providers";
 import { GroqJsonClient } from "./providers/groq/client";
+import { GroqModeration } from "./providers/groq/moderation";
 import { GroqPlanner } from "./providers/groq/planner";
 import { GroqScriptGenerator } from "./providers/groq/script";
+import { GroqCaptionService } from "./captions/groq";
+import { ClipMediaSearchService } from "./media/clip-media-search";
+import { FFmpegExporter } from "./render/ffmpeg-exporter";
+import { RemotionRenderService } from "./render/remotion-renderer";
 import { KokoroVoiceService } from "./providers/kokoro-voice";
 import { MinIOStorageService } from "./providers/minio-storage";
 import { StubCaptions } from "./providers/stub/captions";
@@ -130,6 +135,9 @@ export function getModerationService(): ModerationService {
   if (!moderation) {
     const config = getProviderConfig();
     switch (config.MODERATION_PROVIDER) {
+      case "groq":
+        moderation = new GroqModeration(requireGroqApiKey(config), config.GROQ_MODERATION_MODEL);
+        break;
       case "stub":
         moderation = new StubModeration();
         break;
@@ -144,6 +152,9 @@ export function getMediaSearchService(): MediaSearchService {
   if (!mediaSearch) {
     const config = getProviderConfig();
     switch (config.MEDIA_SEARCH_PROVIDER) {
+      case "clip":
+        mediaSearch = new ClipMediaSearchService(config);
+        break;
       case "stub":
         mediaSearch = new StubMediaSearch();
         break;
@@ -158,6 +169,13 @@ export function getCaptionService(): CaptionService {
   if (!captions) {
     const config = getProviderConfig();
     switch (config.CAPTION_PROVIDER) {
+      case "groq":
+        captions = new GroqCaptionService(
+          requireGroqApiKey(config),
+          config.GROQ_STT_MODEL,
+          getStorageService()
+        );
+        break;
       case "stub":
         captions = new StubCaptions(getStorageService());
         break;
@@ -172,6 +190,9 @@ export function getRendererService(): RendererService {
   if (!renderer) {
     const config = getProviderConfig();
     switch (config.RENDERER_PROVIDER) {
+      case "remotion":
+        renderer = new RemotionRenderService();
+        break;
       case "stub":
         renderer = new StubRenderer();
         break;
@@ -186,6 +207,9 @@ export function getExporterService(): ExporterService {
   if (!exporter) {
     const config = getProviderConfig();
     switch (config.EXPORTER_PROVIDER) {
+      case "ffmpeg":
+        exporter = new FFmpegExporter(getStorageService());
+        break;
       case "stub":
         exporter = new StubExporter(getStorageService());
         break;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/utilis/auth";
+import { getBalance } from "@/lib/billing/balance";
 import { getProfile } from "@/lib/workplace/queries";
 import { WorkplaceHeader } from "@/components/workplace/workplace-header";
 import { Hero } from "@/components/workplace/hero";
@@ -32,7 +33,7 @@ export default async function WorkplacePage() {
 
   // Profile renders in the header/hero shell, so it's awaited up front;
   // the four data sections below stream in independently via Suspense.
-  const profile = await getProfile(userId);
+  const [profile, balance] = await Promise.all([getProfile(userId), getBalance(userId)]);
   if (!profile) {
     // Session references a user that no longer exists — force re-auth.
     redirect("/api/auth/signin?callbackUrl=/workplace");
@@ -40,7 +41,7 @@ export default async function WorkplacePage() {
 
   return (
     <div className="landing min-h-screen bg-fog font-sans">
-      <WorkplaceHeader profile={profile} />
+      <WorkplaceHeader profile={profile} credits={balance} />
 
       <main className="mx-auto max-w-6xl px-5 py-8">
         <Hero name={profile.name} />

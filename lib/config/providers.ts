@@ -15,11 +15,18 @@ const providerConfigSchema = z.object({
   KOKORO_URL: z.string().default("http://localhost:8880"),
   KOKORO_VOICE: z.string().default("af_heart"),
 
-  MODERATION_PROVIDER: z.enum(["stub"]).default("stub"),
-  MEDIA_SEARCH_PROVIDER: z.enum(["stub"]).default("stub"),
-  CAPTION_PROVIDER: z.enum(["stub"]).default("stub"),
-  RENDERER_PROVIDER: z.enum(["stub"]).default("stub"),
-  EXPORTER_PROVIDER: z.enum(["stub"]).default("stub"),
+  MODERATION_PROVIDER: z.enum(["stub", "groq"]).default("groq"),
+  GROQ_MODERATION_MODEL: z.string().default("openai/gpt-oss-safeguard-20b"),
+  MEDIA_SEARCH_PROVIDER: z.enum(["stub", "clip"]).default("clip"),
+  CAPTION_PROVIDER: z.enum(["stub", "groq"]).default("groq"),
+  RENDERER_PROVIDER: z.enum(["stub", "remotion"]).default("remotion"),
+  EXPORTER_PROVIDER: z.enum(["stub", "ffmpeg"]).default("ffmpeg"),
+
+  GROQ_STT_MODEL: z.string().default("whisper-large-v3-turbo"),
+
+  QDRANT_URL: z.string().default("http://localhost:6333"),
+  QDRANT_COLLECTION: z.string().default("media_library"),
+  MEDIA_LIBRARY_DIR: z.string().default("./media-library"),
 
   STORAGE_PROVIDER: z.enum(["minio"]).default("minio"),
   MINIO_ENDPOINT: z.string().default("localhost"),

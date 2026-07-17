@@ -4,6 +4,7 @@ import { auth } from "@/lib/utilis/auth";
 import { db } from "@/lib/db";
 import { generations, projects } from "@/lib/db/schema";
 import { enqueueGenerationJob } from "@/lib/queue/generation-queue";
+import { hasCredit } from "@/lib/billing/balance";
 import { verifyCsrf } from "@/lib/auth/csrf";
 
 /**
@@ -26,6 +27,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
   if (!project || project.userId !== session.user.id) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // Balance is checked at start but only debited on completion (CLAUDE.md Billing).
+  if (!(await hasCredit(session.user.id))) {
+    return NextResponse.json({ error: "insufficient_credits" }, { status: 402 });
   }
 
   const [generation] = await db

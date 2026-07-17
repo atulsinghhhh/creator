@@ -22,9 +22,9 @@ Pipeline Stages
    ├─► Planner
    ├─► Script Generator     ──► LLM provider (Groq)
    ├─► Voice Generator      ──► TTS provider (Kokoro)
-   ├─► Media Search         ──► Stock media provider (stub)
-   ├─► Caption Generator    ──► Speech-to-text (stub)
-   ├─► Renderer             ──► FFmpeg/Remotion (stub)
+   ├─► Media Search         ──► CLIP + Qdrant (local library)
+   ├─► Caption Generator    ──► Groq Speech-to-Text (whisper-large-v3-turbo)
+   ├─► Renderer             ──► Remotion (composition) + FFmpeg (export)
    └─► Exporter             ──► File storage (MinIO)
         │
         ▼
